@@ -1,0 +1,52 @@
+[project]
+name = "edgeai-lab12"
+version = "0.1.0"
+description = "Edge AI CI/CD — Multi-arch Docker Build + GHCR Push + Jetson Deploy"
+requires-python = "==3.10.*"
+dependencies = [
+    "ultralytics>=8.4",
+    "paho-mqtt>=2.0",
+    "onnxruntime<1.22",
+    "numpy==1.26.4",
+    "onnxslim>=0.1.91",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.6.9",
+    "pytest==8.3.3",
+]
+
+[tool.pdm.resolution]
+excludes = [
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "tensorrt",
+    "nvidia-cudnn-cu12",
+    "nvidia-cublas-cu12",
+]
+
+[tool.pdm.scripts]
+lint = "ruff check . --output-format=github"
+test = "pytest tests/ -v"
+validate-step0 = {shell = "bash validate_step0.sh"}
+validate-step1 = {shell = "bash validate_step1.sh"}
+validate-step2 = {shell = "bash validate_step2.sh"}
+validate-step3 = {shell = "bash validate_step3.sh"}
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

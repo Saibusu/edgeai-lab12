@@ -1,0 +1,40 @@
+# Dockerfile.ci — CI-friendly single-stage build for Jetson (ARM64)
+# Build with: docker buildx build --platform linux/arm64 -f Dockerfile.ci -t edgeai-lab12 .
+# No GPU needed at build time — TensorRT engine is compiled at container start by entrypoint.sh.
+
+FROM dustynv/pytorch:2.7-r36.4.0
+
+WORKDIR /app
+
+# Disable PyPI CUDA index so pip never replaces system CUDA wheels
+ENV PIP_INDEX_URL=https://pypi.org/simple/ \
+    PIP_EXTRA_INDEX_URL="" \
+    YOLO_OFFLINE=1 \
+    YOLO_CONFIG_DIR=/tmp/yolo_cfg
+
+# System libs required by OpenCV headless
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies (torch/torchvision/onnxruntime-gpu already in base image)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create a minimal onnxruntime-gpu dist-info stub so ultralytics can detect it
+RUN mkdir -p /usr/local/lib/python3.10/dist-packages/onnxruntime_gpu-1.21.0.dist-info && \
+    echo 'Metadata-Version: 2.1\nName: onnxruntime-gpu\nVersion: 1.21.0' \
+    > /usr/local/lib/python3.10/dist-packages/onnxruntime_gpu-1.21.0.dist-info/METADATA
+
+# Copy app code and entrypoint
+COPY inference_node.py /app/inference_node.py
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh && mkdir -p /opt/models
+
+# Copy model weights (committed to repo — see Step 0 note in lab instructions)
+COPY best.pt /opt/models/best.pt
+
+# No GPU work here. The TRT engine is compiled at container start by entrypoint.sh.
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["python3", "/app/inference_node.py"]
